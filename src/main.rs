@@ -5,6 +5,7 @@ struct Context<'a> {
     all_words: Vec<&'a str>,
     all_word_bits: Vec<u32>,
     bits_to_indexes: collections::HashMap<u32, usize>,
+    letter_index: [Vec<u32>; 26],
 }
 
 impl<'a> Context<'a> {
@@ -38,26 +39,32 @@ impl<'a> Context<'a> {
 
         // Least used letters get the lower index.
         frequences.sort_by_key(|x| (x.1, x.0));
+        let mut order = [0u8; 26];
         let mut reverse_order = [0usize; 26];
         for (i, f) in frequences.iter().enumerate() {
+            order[i] = f.0;
             reverse_order[f.0 as usize] = i;
         }
 
-        // for w in &all_word_bits {
-        //     let lowest_letter = w.trailing_zeros() as usize;
-        //     let mut min = reverse_order[lowest_letter];
-        //     let mut m = w & w-1; // Drop the lowest letter from the set.
-        //     while m > 0 {
-        //         let lowest_letter = m.trailing_zeros() as usize;
-        //         min = std::cmp::min(v1, v2)
-        //     }
-        // }
+        // For each word we build an index where the first
+        let mut letter_index: [Vec<u32>; 26] = Default::default();
+        for w in &all_word_bits {
+            let mut m = *w;
+            let mut min = reverse_order[m.trailing_zeros() as usize]; // Lowest letter.
+            m &= m - 1; // Drop the lowest letter;
+            while m != 0 {
+                min = std::cmp::min(min, reverse_order[m.trailing_zeros() as usize]);
+                m &= m - 1;
+            }
+            letter_index[min].push(*w);
+        }
 
         Self {
             frequences,
             all_words,
             all_word_bits,
             bits_to_indexes,
+            letter_index,
         }
     }
 }
@@ -67,12 +74,34 @@ fn word_bits(w: &[u8; 5]) -> u32 {
     1 << w[0] - b'a' | 1 << w[1] - b'a' | 1 << w[2] - b'a' | 1 << w[3] - b'a' | 1 << w[4] - b'a'
 }
 
+type WordArray = [u8; 5];
+
+fn find_words(ctx: &Context) -> Vec<WordArray> {
+    let mut res = Vec::with_capacity(10_000);
+
+    let mut threads = vec![];
+    for _ in 0..dbg!(num_cpus::get()) {
+        threads.push(std::thread::spawn(|| {}));
+    }
+
+
+
+    for t in threads {
+        let _ = t.join();
+    }
+    res
+}
+
 fn main() {
     let input = include_str!("words_alpha.txt");
     let ctx = Context::from_words(input);
-    for w in ctx.all_words {
-        println!("{w}");
-    }
+
+    // let mut solution = Vec::with_capacity(10_000);
+
+    dbg!(/* unique words */ ctx.all_word_bits.len());
+
+    let solutions = find_words(&ctx);
+    println!("solutions: {num}", num = solutions.len());
 }
 
 #[cfg(test)]
