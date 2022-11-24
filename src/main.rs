@@ -74,17 +74,29 @@ fn word_bits(w: &[u8; 5]) -> u32 {
     1 << w[0] - b'a' | 1 << w[1] - b'a' | 1 << w[2] - b'a' | 1 << w[3] - b'a' | 1 << w[4] - b'a'
 }
 
-type WordArray = [u8; 5];
+type WordArray = [u32; 5]; // 5 bit sets representing 5 words.
 
-fn find_words(ctx: &Context) -> Vec<WordArray> {
+fn find_all_words(_ctx: &Context) -> Vec<WordArray> {
     let mut res = Vec::with_capacity(10_000);
+
+    use crossbeam_channel::bounded;
+    let (s, r) = bounded(100);
 
     let mut threads = vec![];
     for _ in 0..dbg!(num_cpus::get()) {
-        threads.push(std::thread::spawn(|| {}));
+        let r = r.clone();
+        threads.push(std::thread::spawn(move || {
+            for m in r {
+                println!("received {m}");
+            }
+        }));
     }
 
-
+    for i in 0..10 {
+        s.send(format!("hello {i}")).expect("hello was not sent");
+        s.send(format!("world {i}")).expect("world was not sent");
+    }
+    drop(s);
 
     for t in threads {
         let _ = t.join();
@@ -100,7 +112,7 @@ fn main() {
 
     dbg!(/* unique words */ ctx.all_word_bits.len());
 
-    let solutions = find_words(&ctx);
+    let solutions = find_all_words(&ctx);
     println!("solutions: {num}", num = solutions.len());
 }
 
