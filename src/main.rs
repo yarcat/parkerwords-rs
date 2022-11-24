@@ -1,13 +1,11 @@
 use std::collections;
 
 struct Context<'a> {
-    frequences: [(u8, usize); 26],
     all_words: Vec<&'a str>,
     all_word_bits: Vec<u32>,
     bits_to_indexes: collections::HashMap<u32, usize>,
     letter_index: [Vec<u32>; 26],
     order: [u8; 26],
-    reverse_order: [usize; 26],
 }
 
 impl<'a> Context<'a> {
@@ -62,13 +60,11 @@ impl<'a> Context<'a> {
         }
 
         Self {
-            frequences,
             all_words,
             all_word_bits,
             bits_to_indexes,
             letter_index,
             order,
-            reverse_order,
         }
     }
 
@@ -117,7 +113,7 @@ impl<'a> Finder<'a> {
         mut skipped: bool,
     ) {
         for i in from_letter..26 {
-            let letter = self.ctx.frequences[i].0;
+            let letter = self.ctx.order[i];
             let m = 1 << letter;
             if selected_letters & m != 0 {
                 // No new letters.
@@ -184,7 +180,7 @@ fn main() {
 
     let solutions = find_all_words(&ctx);
     println!("solutions: {num}", num = solutions.len());
-    println!("{solutions:#?}");
+    // println!("{solutions:#?}");
 }
 
 #[cfg(test)]
@@ -214,22 +210,7 @@ mod test {
         let mut bits_to_indexes = ctx.bits_to_indexes.iter().collect::<Vec<_>>();
         bits_to_indexes.sort();
         assert_eq!(bits_to_indexes, [(&0b11111, &0), (&0b111110000, &1)]);
-        assert_eq!(
-            ctx.frequences[15..],
-            [
-                (24, 0),
-                (25, 0),
-                (0, 1),
-                (1, 1),
-                (2, 1),
-                (3, 1),
-                (5, 1),
-                (6, 1),
-                (7, 1),
-                (8, 1),
-                (4, 2), // e is repeated twice.
-            ]
-        );
+        assert_eq!(ctx.order[15..], [24, 25, 0, 1, 2, 3, 5, 6, 7, 8, 4,]); // e is repeated twice.
     }
 
     #[test]
