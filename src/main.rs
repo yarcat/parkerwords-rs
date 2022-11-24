@@ -6,6 +6,8 @@ struct Context<'a> {
     all_word_bits: Vec<u32>,
     bits_to_indexes: collections::HashMap<u32, usize>,
     letter_index: [Vec<u32>; 26],
+    order: [u8; 26],
+    reverse_order: [usize; 26],
 }
 
 impl<'a> Context<'a> {
@@ -65,7 +67,18 @@ impl<'a> Context<'a> {
             all_word_bits,
             bits_to_indexes,
             letter_index,
+            order,
+            reverse_order,
         }
+    }
+
+    fn words(&self, words: WordArray) -> [&str; 5] {
+        words
+            .iter()
+            .map(|w| self.all_words[self.bits_to_indexes[w]])
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap()
     }
 }
 
@@ -76,32 +89,89 @@ fn word_bits(w: &[u8; 5]) -> u32 {
 
 type WordArray = [u32; 5]; // 5 bit sets representing 5 words.
 
-fn find_all_words(_ctx: &Context) -> Vec<WordArray> {
-    let mut res = Vec::with_capacity(10_000);
+struct Finder<'a> {
+    ctx: &'a Context<'a>,
+    res: Vec<WordArray>,
+}
 
-    use crossbeam_channel::bounded;
-    let (s, r) = bounded(100);
+impl<'a> Finder<'a> {
+    fn new(ctx: &'a Context) -> Self {
+        Self {
+            ctx,
+            res: Vec::with_capacity(100),
+        }
+    }
 
-    let mut threads = vec![];
-    for _ in 0..dbg!(num_cpus::get()) {
-        let r = r.clone();
-        threads.push(std::thread::spawn(move || {
-            for m in r {
-                println!("received {m}");
+    fn find_all(&mut self) -> &Vec<WordArray> {
+        let mut words = WordArray::default();
+        self.find(&mut words, 0, 0, 0, false);
+        &self.res
+    }
+
+    fn find(
+        &mut self,
+        words: &mut WordArray, // Accumulator.
+        words_found: usize,    // And its length.
+        selected_letters: u32,
+        from_letter: usize,
+        mut skipped: bool,
+    ) {
+        for i in from_letter..26 {
+            let letter = self.ctx.frequences[i].0;
+            let m = 1 << letter;
+            if selected_letters & m != 0 {
+                // No new letters.
+                continue;
             }
-        }));
-    }
 
-    for i in 0..10 {
-        s.send(format!("hello {i}")).expect("hello was not sent");
-        s.send(format!("world {i}")).expect("world was not sent");
+            for &w in &self.ctx.letter_index[i] {
+                if w & selected_letters != 0 {
+                    // No new letters.
+                    continue;
+                }
+                words[words_found] = w;
+                if words_found == 4 {
+                    // We've found all 5 words.
+                    self.res.push(words.clone());
+                } else {
+                    self.find(words, words_found + 1, selected_letters | w, i + 1, skipped);
+                }
+            }
+            if skipped {
+                break;
+            }
+            skipped = true;
+        }
     }
-    drop(s);
+}
 
-    for t in threads {
-        let _ = t.join();
-    }
-    res
+fn find_all_words(ctx: &Context) -> Vec<WordArray> {
+    let mut f = Finder::new(ctx);
+    f.find_all();
+
+    // use crossbeam_channel::bounded;
+    // let (s, r) = bounded(100);
+
+    // let mut threads = vec![];
+    // for _ in 0..dbg!(num_cpus::get()) {
+    //     let r = r.clone();
+    //     threads.push(std::thread::spawn(move || {
+    //         for m in r {
+    //             println!("received {m}");
+    //         }
+    //     }));
+    // }
+
+    // for i in 0..10 {
+    //     s.send(format!("hello {i}")).expect("hello was not sent");
+    //     s.send(format!("world {i}")).expect("world was not sent");
+    // }
+    // drop(s);
+
+    // for t in threads {
+    //     let _ = t.join();
+    // }
+    f.res
 }
 
 fn main() {
@@ -114,6 +184,7 @@ fn main() {
 
     let solutions = find_all_words(&ctx);
     println!("solutions: {num}", num = solutions.len());
+    println!("{solutions:#?}");
 }
 
 #[cfg(test)]
@@ -158,6 +229,23 @@ mod test {
                 (8, 1),
                 (4, 2), // e is repeated twice.
             ]
+        );
+    }
+
+    #[test]
+    fn test_finder() {
+        let words = "abcde fghij klmno pqrst uvwxy zabcd";
+        let ctx = Context::from_words(words);
+        let mut f = Finder::new(&ctx);
+        let words = f.find_all();
+        assert_eq!(words.len(), 2);
+        assert_eq!(
+            ctx.words(words[0]),
+            ["abcde", "fghij", "klmno", "pqrst", "uvwxy"]
+        );
+        assert_eq!(
+            ctx.words(words[1]),
+            ["fghij", "klmno", "pqrst", "uvwxy", "zabcd"]
         );
     }
 }
