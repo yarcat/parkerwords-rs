@@ -94,7 +94,7 @@ impl<'a> Finder<'a> {
     fn new(ctx: &'a Context) -> Self {
         Self {
             ctx,
-            res: Vec::with_capacity(100),
+            res: Vec::with_capacity(1_000),
         }
     }
 
@@ -107,15 +107,13 @@ impl<'a> Finder<'a> {
     fn find(
         &mut self,
         words: &mut WordArray, // Accumulator.
-        words_found: usize,    // And its length.
+        words_found: usize,    // And its active length.
         selected_letters: u32,
         from_letter: usize,
         mut skipped: bool,
     ) {
-        for i in from_letter..26 {
-            let letter = self.ctx.order[i];
-            let m = 1 << letter;
-            if selected_letters & m != 0 {
+        for (i, letter) in self.ctx.order.iter().enumerate().skip(from_letter) {
+            if selected_letters & (1 << letter) != 0 {
                 // No new letters.
                 continue;
             }
