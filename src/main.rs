@@ -1,5 +1,5 @@
 use crossbeam_channel::bounded;
-use std::{collections, thread, time::Instant};
+use std::{collections, sync::mpsc, thread, time::Instant};
 
 struct Context<'a> {
     all_words: Vec<&'a str>,
@@ -137,40 +137,50 @@ impl<'a> Finder<'a> {
 }
 
 fn find_all_words<'a>(ctx: &'a Context) -> Vec<WordArray> {
-    // let mut f = Finder::new(ctx);
-    // return  f.find_all().clone();
+    let mut res = Vec::new();
+
+    let jobs = num_cpus::get();
+    let (res_send, res_recv) = bounded(jobs);
     thread::scope(|scope| {
-        let (s, r) = bounded(1000);
-        for _ in 0..num_cpus::get() {
+        let (job_send, job_recv) = bounded(1000);
+
+        for _ in 0..jobs {
             scope.spawn({
-                let r = r.clone();
+                let res_send = res_send.clone();
+                let job_recv = job_recv.clone();
                 move || {
                     let mut f = Finder::new(&ctx);
                     let mut words = WordArray::default();
-                    for (w, i, skipped) in r {
+                    for (w, i, skipped) in job_recv {
                         words[0] = w;
                         f.find(&mut words, 1, w, i + 1, skipped);
                     }
-                    println!("!!! {}", f.res.len());
+                    println!("sent result");
+                    res_send.send(f.res).expect("failed to send result");
                 }
             });
         }
-        let mut cnt = 0;
+
         let mut skipped = false;
         for (i, _) in ctx.order.iter().enumerate() {
             for &w in &ctx.letter_index[i] {
-                cnt += 1;
-                s.send((w, i, skipped)).expect("failed to create a job");
+                job_send
+                    .send((w, i, skipped))
+                    .expect("failed to create a job");
             }
             if skipped {
                 break;
             }
             skipped = true;
         }
-        println!("created {cnt} jobs");
     });
-    println!("terminated");
-    Vec::new()
+    for _ in 0..jobs {
+        println!("receiving result");
+        let mut f = res_recv.recv().expect("failed to receive result");
+        res.append(&mut f);
+    }
+
+    res
 }
 
 fn main() {
