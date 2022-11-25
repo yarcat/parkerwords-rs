@@ -69,7 +69,7 @@ impl<'a> Context<'a> {
         }
     }
 
-    fn words(&self, words: WordArray) -> [&str; 5] {
+    fn words(&self, words: &WordArray) -> [&str; 5] {
         words
             .iter()
             .map(|w| self.all_words[self.bits_to_indexes[w]])
@@ -198,9 +198,12 @@ fn main() {
     println!("solutions: {num}", num = solutions.len());
     // println!("{solutions:#?}");
 
-    // TODO(yarcat): Write output.
-
     let end = Instant::now();
+
+    // TODO(yarcat): Write full output to a file.
+    for w in solutions.iter().take(10).map(|w| ctx.words(w)) {
+        println!("{w:?}");
+    }
 
     println!("total time:       {:?}", end - start);
     println!("build context in: {:?}", start_algo - start);
@@ -245,11 +248,11 @@ mod test {
         let words = f.find_all();
         assert_eq!(words.len(), 2);
         assert_eq!(
-            ctx.words(words[0]),
+            ctx.words(&words[0]),
             ["abcde", "fghij", "klmno", "pqrst", "uvwxy"]
         );
         assert_eq!(
-            ctx.words(words[1]),
+            ctx.words(&words[1]),
             ["fghij", "klmno", "pqrst", "uvwxy", "zabcd"]
         );
     }
