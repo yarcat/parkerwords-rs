@@ -1,5 +1,5 @@
 use crossbeam_channel::bounded;
-use std::{collections, sync::mpsc, thread, time::Instant};
+use std::{collections, thread, time::Instant};
 
 struct Context<'a> {
     all_words: Vec<&'a str>,
@@ -21,11 +21,7 @@ impl<'a> Context<'a> {
             f.0 = i as u8;
         }
 
-        for w in buf.split_ascii_whitespace() {
-            // Skip words of the wrong length.
-            if w.len() != 5 {
-                continue;
-            }
+        for w in buf.split_ascii_whitespace().filter(|&w| w.len() == 5) {
             let bits = word_bits(w.as_bytes().try_into().unwrap());
             // Skip words that don't have enough unique letters or if we have had these already.
             if bits.count_ones() == 5 && !bits_to_indexes.contains_key(&bits) {
@@ -47,12 +43,13 @@ impl<'a> Context<'a> {
             reverse_order[f.0 as usize] = i;
         }
 
-        // For each word we build an index where the first
+        // Group the words by the least used letters.
         let mut letter_index: [Vec<u32>; 26] = Default::default();
         for w in &all_word_bits {
+            // Iterate over the letters in the word and find the least used one.
             let mut m = *w;
-            let mut min = reverse_order[m.trailing_zeros() as usize]; // Lowest letter.
-            m &= m - 1; // Drop the lowest letter;
+            let mut min = reverse_order[m.trailing_zeros() as usize];
+            m &= m - 1;
             while m != 0 {
                 min = std::cmp::min(min, reverse_order[m.trailing_zeros() as usize]);
                 m &= m - 1;
