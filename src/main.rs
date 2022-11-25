@@ -148,7 +148,6 @@ fn find_all_par(ctx: &Context) -> Vec<WordArray> {
                         words[0] = w;
                         find(&ctx, &mut res, &mut words, 1, w, i + 1, skipped);
                     }
-                    println!("sent result");
                     res_send.send(res).expect("failed to send result");
                 }
             });
@@ -168,7 +167,6 @@ fn find_all_par(ctx: &Context) -> Vec<WordArray> {
         }
     });
     for _ in 0..jobs {
-        println!("receiving result");
         let mut f = res_recv.recv().expect("failed to receive result");
         res.append(&mut f);
     }
@@ -182,14 +180,10 @@ fn main() {
     let input = include_str!("words_alpha.txt");
     let ctx = Context::from_words(input);
 
-    // let mut solution = Vec::with_capacity(10_000);
-
     dbg!(/* unique words */ ctx.all_word_bits.len());
 
     let start_algo = Instant::now();
     let solutions = find_all_par(&ctx);
-    println!("solutions: {num}", num = solutions.len());
-    // println!("{solutions:#?}");
 
     let start_write = Instant::now();
     let mut f = std::io::BufWriter::new(std::fs::File::create("solutions.txt").unwrap());
