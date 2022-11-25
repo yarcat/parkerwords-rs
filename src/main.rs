@@ -83,57 +83,53 @@ fn word_bits(w: &[u8; 5]) -> u32 {
 
 type WordArray = [u32; 5]; // 5 bit sets representing 5 words.
 
-struct Finder<'a> {
-    ctx: &'a Context<'a>,
-    res: Vec<WordArray>,
-}
-
-impl<'a> Finder<'a> {
-    fn new(ctx: &'a Context) -> Self {
-        Self {
-            ctx,
-            res: Vec::with_capacity(1_000),
+fn find(
+    ctx: &Context,
+    res: &mut Vec<WordArray>,
+    words: &mut WordArray, // Accumulator.
+    word_index: usize,     // And its active length.
+    used_letters: u32,
+    from_letter: usize,
+    mut skipped: bool,
+) {
+    for (i, letter) in ctx.order.iter().enumerate().skip(from_letter) {
+        if used_letters & (1 << letter) != 0 {
+            continue;
         }
-    }
-
-    fn find_all(&mut self) -> &Vec<WordArray> {
-        let mut words = WordArray::default();
-        self.find(&mut words, 0, 0, 0, false);
-        &self.res
-    }
-
-    fn find(
-        &mut self,
-        words: &mut WordArray, // Accumulator.
-        word_index: usize,     // And its active length.
-        used_letters: u32,
-        from_letter: usize,
-        mut skipped: bool,
-    ) {
-        for (i, letter) in self.ctx.order.iter().enumerate().skip(from_letter) {
-            if used_letters & (1 << letter) != 0 {
+        for &w in &ctx.letter_index[i] {
+            if w & used_letters != 0 {
                 continue;
             }
-            for &w in &self.ctx.letter_index[i] {
-                if w & used_letters != 0 {
-                    continue;
-                }
-                words[word_index] = w;
-                if word_index == 4 {
-                    self.res.push(words.clone());
-                } else {
-                    self.find(words, word_index + 1, used_letters | w, i + 1, skipped);
-                }
+            words[word_index] = w;
+            if word_index == 4 {
+                res.push(words.clone());
+            } else {
+                find(
+                    &ctx,
+                    res,
+                    words,
+                    word_index + 1,
+                    used_letters | w,
+                    i + 1,
+                    skipped,
+                );
             }
-            if skipped {
-                break;
-            }
-            skipped = true;
         }
+        if skipped {
+            break;
+        }
+        skipped = true;
     }
 }
 
-fn find_all_words<'a>(ctx: &'a Context) -> Vec<WordArray> {
+fn find_all(ctx: &Context) -> Vec<WordArray> {
+    let mut words = WordArray::default();
+    let mut res = vec![];
+    find(&ctx, &mut res, &mut words, 0, 0, 0, false);
+    res
+}
+
+fn find_all_par(ctx: &Context) -> Vec<WordArray> {
     let mut res = Vec::new();
 
     let jobs = thread::available_parallelism().unwrap().into();
@@ -146,14 +142,14 @@ fn find_all_words<'a>(ctx: &'a Context) -> Vec<WordArray> {
                 let res_send = res_send.clone();
                 let job_recv = job_recv.clone();
                 move || {
-                    let mut f = Finder::new(&ctx);
                     let mut words = WordArray::default();
+                    let mut res = vec![];
                     for (w, i, skipped) in job_recv {
                         words[0] = w;
-                        f.find(&mut words, 1, w, i + 1, skipped);
+                        find(&ctx, &mut res, &mut words, 1, w, i + 1, skipped);
                     }
                     println!("sent result");
-                    res_send.send(f.res).expect("failed to send result");
+                    res_send.send(res).expect("failed to send result");
                 }
             });
         }
@@ -191,7 +187,7 @@ fn main() {
     dbg!(/* unique words */ ctx.all_word_bits.len());
 
     let start_algo = Instant::now();
-    let solutions = find_all_words(&ctx);
+    let solutions = find_all_par(&ctx);
     println!("solutions: {num}", num = solutions.len());
     // println!("{solutions:#?}");
 
@@ -238,11 +234,10 @@ mod test {
     }
 
     #[test]
-    fn test_finder() {
+    fn test_find_all() {
         let words = "abcde fghij klmno pqrst uvwxy zabcd";
         let ctx = Context::from_words(words);
-        let mut f = Finder::new(&ctx);
-        let words = f.find_all();
+        let words = find_all(&ctx);
         assert_eq!(words.len(), 2);
         assert_eq!(
             ctx.words(&words[0]),
