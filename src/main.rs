@@ -1,5 +1,5 @@
 use crossbeam_channel::bounded;
-use std::{collections, thread, time::Instant};
+use std::{collections, io::Write, thread, time::Instant};
 
 struct Context<'a> {
     all_words: Vec<&'a str>,
@@ -191,16 +191,20 @@ fn main() {
     println!("solutions: {num}", num = solutions.len());
     // println!("{solutions:#?}");
 
+    let start_write = Instant::now();
+    let mut f = std::io::BufWriter::new(std::fs::File::create("solutions.txt").unwrap());
+    for w in solutions.iter().map(|w| ctx.words(w)) {
+        w.iter().for_each(|&w| write!(f, "{w}\t").unwrap());
+        f.write(b"\n").unwrap();
+    }
+    drop(f);
     let end = Instant::now();
 
-    // TODO(yarcat): Write full output to a file.
-    for w in solutions.iter().take(10).map(|w| ctx.words(w)) {
-        println!("{w:?}");
-    }
-
-    println!("total time:       {:?}", end - start);
-    println!("build context in: {:?}", start_algo - start);
-    println!("process in:       {:?}", end - start_algo);
+    println!("{} solutions written to solutions.txt", solutions.len());
+    println!("Total time: {:?}", end - start);
+    println!("Read:       {:?}", start_algo - start);
+    println!("Process:    {:?}", start_write - start_algo);
+    println!("Write:      {:?}", end - start_write);
 }
 
 #[cfg(test)]
