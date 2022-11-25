@@ -195,10 +195,10 @@ fn main() {
     let end = Instant::now();
 
     println!("{} solutions written to solutions.txt", solutions.len());
-    println!("Total time: {:?}", end - start);
-    println!("Read:       {:?}", start_algo - start);
-    println!("Process:    {:?}", start_write - start_algo);
-    println!("Write:      {:?}", end - start_write);
+    println!("Total time: {:8}µs", (end - start).as_micros());
+    println!("Read:       {:8}µs", (start_algo - start).as_micros());
+    println!("Process:    {:8}µs", (start_write - start_algo).as_micros());
+    println!("Write:      {:8}µs", (end - start_write).as_micros());
 }
 
 #[cfg(test)]

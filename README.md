@@ -11,26 +11,26 @@ $ cargo build --release
 $ ./target/release/parkerwords-rs
 [src\main.rs:183] ctx.all_word_bits.len() = 5977
 538 solutions written to solutions.txt
-Total time: 19.2388ms
-Read:       6.8434ms
-Process:    11.8048ms
-Write:      590.6µs
+Total time:    18646µs
+Read:           9114µs
+Process:        8724µs
+Write:           808µs
 
 $ ./target/release/parkerwords-rs
 [src\main.rs:183] ctx.all_word_bits.len() = 5977
 538 solutions written to solutions.txt
-Total time: 18.8244ms
-Read:       6.7889ms
-Process:    11.3585ms
-Write:      677µs
+Total time:    17763µs
+Read:           8614µs
+Process:        8343µs
+Write:           805µs
 
-$ ./target/release/parkerwords-rs.exe
+$ ./target/release/parkerwords-rs
 [src\main.rs:183] ctx.all_word_bits.len() = 5977
 538 solutions written to solutions.txt
-Total time: 18.9783ms
-Read:       6.8236ms
-Process:    11.6318ms
-Write:      522.9µs
+Total time:    18560µs
+Read:           8155µs
+Process:        9796µs
+Write:           609µs
 ```
 
 Original C++ implementation
