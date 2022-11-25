@@ -1,4 +1,5 @@
-use std::collections;
+use crossbeam_channel::bounded;
+use std::{collections, thread};
 
 struct Context<'a> {
     all_words: Vec<&'a str>,
@@ -107,28 +108,28 @@ impl<'a> Finder<'a> {
     fn find(
         &mut self,
         words: &mut WordArray, // Accumulator.
-        words_found: usize,    // And its active length.
-        selected_letters: u32,
+        word_index: usize,     // And its active length.
+        used_letters: u32,
         from_letter: usize,
         mut skipped: bool,
     ) {
         for (i, letter) in self.ctx.order.iter().enumerate().skip(from_letter) {
-            if selected_letters & (1 << letter) != 0 {
+            if used_letters & (1 << letter) != 0 {
                 // No new letters.
                 continue;
             }
 
             for &w in &self.ctx.letter_index[i] {
-                if w & selected_letters != 0 {
+                if w & used_letters != 0 {
                     // No new letters.
                     continue;
                 }
-                words[words_found] = w;
-                if words_found == 4 {
+                words[word_index] = w;
+                if word_index == 4 {
                     // We've found all 5 words.
                     self.res.push(words.clone());
                 } else {
-                    self.find(words, words_found + 1, selected_letters | w, i + 1, skipped);
+                    self.find(words, word_index + 1, used_letters | w, i + 1, skipped);
                 }
             }
             if skipped {
@@ -139,33 +140,36 @@ impl<'a> Finder<'a> {
     }
 }
 
-fn find_all_words(ctx: &Context) -> Vec<WordArray> {
-    let mut f = Finder::new(ctx);
-    f.find_all();
-
-    // use crossbeam_channel::bounded;
-    // let (s, r) = bounded(100);
-
-    // let mut threads = vec![];
-    // for _ in 0..dbg!(num_cpus::get()) {
-    //     let r = r.clone();
-    //     threads.push(std::thread::spawn(move || {
-    //         for m in r {
-    //             println!("received {m}");
-    //         }
-    //     }));
-    // }
-
-    // for i in 0..10 {
-    //     s.send(format!("hello {i}")).expect("hello was not sent");
-    //     s.send(format!("world {i}")).expect("world was not sent");
-    // }
-    // drop(s);
-
-    // for t in threads {
-    //     let _ = t.join();
-    // }
-    f.res
+fn find_all_words<'a>(ctx: &'a Context) -> Vec<WordArray> {
+    // let mut f = Finder::new(ctx);
+    // return  f.find_all().clone();
+    thread::scope(|scope| {
+        let (s, r) = bounded(1000);
+        for _ in 0..num_cpus::get_physical() {
+            scope.spawn({
+                let r = r.clone();
+                move || {
+                    let mut f = Finder::new(&ctx);
+                    let mut words = WordArray::default();
+                    for (w, i) in r {
+                        words[0] = w;
+                        f.find(&mut words, 1, w, i + 1, false);
+                    }
+                    println!("!!! {}", f.res.len());
+                }
+            });
+        }
+        let mut cnt = 0;
+        for (i, _) in ctx.order.iter().enumerate() {
+            for &w in &ctx.letter_index[i] {
+                cnt += 1;
+                s.send((w, i)).expect("failed to create a job");
+            }
+        }
+        println!("created {cnt} jobs");
+    });
+    println!("terminated");
+    Vec::new()
 }
 
 fn main() {
