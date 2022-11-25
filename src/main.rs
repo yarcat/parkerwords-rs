@@ -1,5 +1,5 @@
 use crossbeam_channel::bounded;
-use std::{collections, thread};
+use std::{collections, thread, time::Instant};
 
 struct Context<'a> {
     all_words: Vec<&'a str>,
@@ -162,7 +162,9 @@ fn find_all_words<'a>(ctx: &'a Context) -> Vec<WordArray> {
                 cnt += 1;
                 s.send((w, i, skipped)).expect("failed to create a job");
             }
-            if skipped { break; }
+            if skipped {
+                break;
+            }
             skipped = true;
         }
         println!("created {cnt} jobs");
@@ -172,6 +174,8 @@ fn find_all_words<'a>(ctx: &'a Context) -> Vec<WordArray> {
 }
 
 fn main() {
+    let start = Instant::now();
+
     let input = include_str!("words_alpha.txt");
     let ctx = Context::from_words(input);
 
@@ -179,9 +183,18 @@ fn main() {
 
     dbg!(/* unique words */ ctx.all_word_bits.len());
 
+    let start_algo = Instant::now();
     let solutions = find_all_words(&ctx);
     println!("solutions: {num}", num = solutions.len());
     // println!("{solutions:#?}");
+
+    // TODO(yarcat): Write output.
+
+    let end = Instant::now();
+
+    println!("total time:       {:?}", end - start);
+    println!("build context in: {:?}", start_algo - start);
+    println!("process in:       {:?}", end - start_algo);
 }
 
 #[cfg(test)]
