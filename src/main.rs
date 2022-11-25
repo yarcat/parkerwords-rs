@@ -115,18 +115,14 @@ impl<'a> Finder<'a> {
     ) {
         for (i, letter) in self.ctx.order.iter().enumerate().skip(from_letter) {
             if used_letters & (1 << letter) != 0 {
-                // No new letters.
                 continue;
             }
-
             for &w in &self.ctx.letter_index[i] {
                 if w & used_letters != 0 {
-                    // No new letters.
                     continue;
                 }
                 words[word_index] = w;
                 if word_index == 4 {
-                    // We've found all 5 words.
                     self.res.push(words.clone());
                 } else {
                     self.find(words, word_index + 1, used_letters | w, i + 1, skipped);
@@ -145,26 +141,29 @@ fn find_all_words<'a>(ctx: &'a Context) -> Vec<WordArray> {
     // return  f.find_all().clone();
     thread::scope(|scope| {
         let (s, r) = bounded(1000);
-        for _ in 0..num_cpus::get_physical() {
+        for _ in 0..num_cpus::get() {
             scope.spawn({
                 let r = r.clone();
                 move || {
                     let mut f = Finder::new(&ctx);
                     let mut words = WordArray::default();
-                    for (w, i) in r {
+                    for (w, i, skipped) in r {
                         words[0] = w;
-                        f.find(&mut words, 1, w, i + 1, false);
+                        f.find(&mut words, 1, w, i + 1, skipped);
                     }
                     println!("!!! {}", f.res.len());
                 }
             });
         }
         let mut cnt = 0;
+        let mut skipped = false;
         for (i, _) in ctx.order.iter().enumerate() {
             for &w in &ctx.letter_index[i] {
                 cnt += 1;
-                s.send((w, i)).expect("failed to create a job");
+                s.send((w, i, skipped)).expect("failed to create a job");
             }
+            if skipped { break; }
+            skipped = true;
         }
         println!("created {cnt} jobs");
     });
