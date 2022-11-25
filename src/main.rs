@@ -136,7 +136,7 @@ impl<'a> Finder<'a> {
 fn find_all_words<'a>(ctx: &'a Context) -> Vec<WordArray> {
     let mut res = Vec::new();
 
-    let jobs = num_cpus::get();
+    let jobs = thread::available_parallelism().unwrap().into();
     let (res_send, res_recv) = bounded(jobs);
     thread::scope(|scope| {
         let (job_send, job_recv) = bounded(1000);
