@@ -135,7 +135,7 @@ fn find_all_par(ctx: &Context) -> Vec<WordArray> {
     let jobs = thread::available_parallelism().unwrap().into();
     let (res_send, res_recv) = bounded(jobs);
     thread::scope(|scope| {
-        let (job_send, job_recv) = bounded(1000);
+        let (job_send, job_recv) = bounded(100);
 
         for _ in 0..jobs {
             scope.spawn({
@@ -144,26 +144,19 @@ fn find_all_par(ctx: &Context) -> Vec<WordArray> {
                 move || {
                     let mut words = WordArray::default();
                     let mut res = vec![];
-                    for (w, i, skipped) in job_recv {
+                    for (w, i) in job_recv {
                         words[0] = w;
-                        find(&ctx, &mut res, &mut words, 1, w, i + 1, skipped);
+                        find(&ctx, &mut res, &mut words, 1, w, i + 1, i == 1);
                     }
                     res_send.send(res).expect("failed to send result");
                 }
             });
         }
 
-        let mut skipped = false;
-        for (i, _) in ctx.order.iter().enumerate() {
-            for &w in &ctx.letter_index[i] {
-                job_send
-                    .send((w, i, skipped))
-                    .expect("failed to create a job");
+        for (i, w) in ctx.letter_index.iter().take(2).enumerate() {
+            for &w in w {
+                job_send.send((w, i)).expect("failed to create a job");
             }
-            if skipped {
-                break;
-            }
-            skipped = true;
         }
     });
     for _ in 0..jobs {
