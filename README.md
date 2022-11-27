@@ -4,6 +4,7 @@ Please note that it is not fair to compare the reading time, since the text file
 Everything else should be comparable.
 
 > **Note**
+> 
 > Cross-link to Golang implementation, which is suprisingly fast https://github.com/yarcat/parkerwords-go
 
 
