@@ -3,6 +3,11 @@ A Rust port of https://github.com/oisyn/parkerwords/ C++ implementation.
 Please note that it is not fair to compare the reading time, since the text file is basically built into the binary here.
 Everything else should be comparable.
 
+> **Note**
+> 
+> Cross-link to Golang implementation, which is suprisingly fast https://github.com/yarcat/parkerwords-go
+
+
 This implementation
 
 ```
