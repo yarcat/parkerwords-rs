@@ -170,8 +170,9 @@ fn find_all_par(ctx: &Context) -> Vec<WordArray> {
 fn main() {
     let start = Instant::now();
 
-    let input = include_str!("words_alpha.txt");
-    let ctx = Context::from_words(input);
+    let input =
+        std::fs::read_to_string("words_alpha.txt").expect("Should have been able to read the file");
+    let ctx = Context::from_words(&input);
 
     dbg!(/* unique words */ ctx.all_word_bits.len());
 
